@@ -1,0 +1,46 @@
+name: Build APK
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Unzip project
+        run: |
+          ls -la
+          unzip -q -o ./*.zip
+          ls -la RentVPN
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 8.9
+
+      - name: Download libv2ray.aar
+        working-directory: RentVPN
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p app/libs
+          gh release download -R 2dust/AndroidLibXrayLite -p '*.aar' -D app/libs --clobber
+          ls -la app/libs
+          for f in app/libs/*.aar; do [ "$f" != "app/libs/libv2ray.aar" ] && mv "$f" app/libs/libv2ray.aar; done || true
+
+      - name: Build debug APK
+        working-directory: RentVPN
+        run: gradle :app:assembleDebug --stacktrace
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: RENT-VPN-debug-apk
+          path: RentVPN/app/build/outputs/apk/debug/*.apk
